@@ -1,73 +1,79 @@
-# React + TypeScript + Vite
+# Stairgen
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Interaktywny konfigurator schodów kręconych — pełne stopnie z podniebieniem — eksport do GLB.
 
-Currently, two official plugins are available:
+## Funkcje
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **65+ parametrów** — wymiary, liczba stopni, nos (square/rounded/chamfer), 3 tryby podniebienia (stepped / smooth_helix / offset_slab), słup centralny (solid/tube + kapy + podstawy), spocznik (ćwiartka/pół/kwadrat), balustrada (tralki pionowe/poziome/szkło/linki/panele), pochwyt helikoidalny, materiały PBR per element
+- **Walidacja live** — 7 reguł PL Warunki Techniczne × 3 profile budynku (mieszkanie / publiczny / pomocnicze)
+- **5 presetów** — Mieszkanie beton Ø140, Mieszkanie drewno Ø160, Loft metal Ø120, Publiczny beton Ø180, Premium marmur Ø150
+- **Eksport GLB** — pełna geometria + materiały PBR, metadata konfiguracji w `asset.extras.stairgenConfig`
+- **Sceneria** — 5 presetów HDRI (studio / showroom / interior_warm / interior_cool / dusk), kontaktowe cienie, 5 presetów kamery (hero / top / elevation / detail_nosing / underside)
 
-## React Compiler
+## Start
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev        # http://localhost:5173
+npm test           # 62 testy jednostkowe
+npm run build      # produkcyjny bundle do dist/
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Stack
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Vite 8 · React 19 · TypeScript 5 (strict, noUncheckedIndexedAccess, exactOptionalPropertyTypes)
+· three 0.183 · @react-three/fiber · @react-three/drei · three-stdlib
+· zustand · leva · vitest
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Struktura
+
 ```
+src/
+├── config/       types, defaults, computed metrics, validators (WT), 5 presets
+├── geometry/     builders: step (z profile sweep), soffit (3 tryby), column, balustrade, rail (helikoida), landing, materials
+├── scene/        R3F components: Stair composition, Environment (HDRI), Camera rig, ExportListener
+├── ui/           Topbar, ControlPanel (leva), ValidationPanel, StatusBar, PresetPicker, ExportButton
+├── export/       exportSceneToGLB (GLTFExporter + custom extras injection)
+└── store/        useStairStore (zustand, update/applyPreset/reset)
+```
+
+Dokumentacja: `docs/plans/2026-04-15-spiral-stair-configurator-design.md` (decyzje projektowe), `docs/qa-checklist.md` (QA gate).
+
+## Eksport GLB
+
+Kliknij **Export GLB ⬇** w topbarze. Plik `stairgen_<timestamp>.glb` zostanie pobrany do domyślnego katalogu pobierania.
+
+Model jest skalowany w metrach (współczynnik 0.001 vs. mm w-aplikacji). Materiały: `MeshStandardMaterial` → standard glTF PBR. Konfiguracja zapisana jako JSON w `asset.extras.stairgenConfig` — można odtworzyć identyczny projekt.
+
+Weryfikacja: https://gltf-viewer.donmccurdy.com/
+
+## Zgodność (PL Warunki Techniczne)
+
+Walidator sprawdza:
+
+| Reguła | Mieszkanie (§68) | Publiczny | Pomocnicze |
+|---|---|---|---|
+| rise max | 190 mm | 175 mm | 220 mm |
+| walkline depth min | 250 mm | 300 mm | 200 mm |
+| szerokość użytkowa min | 800 mm | 1200 mm | 600 mm |
+| wysokość pochwytu min | 900 mm | 1100 mm | 900 mm |
+| rozstaw tralek max | 120 mm | 120 mm | 200 mm |
+| Blondel (2h+s) | 600–650 | 600–650 | info |
+| kąt stopnia max | 30° | 30° | 45° |
+
+Wyniki live w prawym panelu, kolorowanie wg severity.
+
+## Roadmap (v2)
+
+- PBR texture maps (drewno/beton/marmur) + `textureScale`
+- Draco kompresja eksportu
+- PNG screenshot
+- Import konfiguracji JSON drag&drop
+- Wiele biegów / winder / spoczniki między biegami
+- Eksport 2D (rzut + przekrój) SVG z wymiarami
+- Profil dostępności (PWD)
+- Animacja „unfold" do prezentacji
+
+## Licencja
+
+UNLICENSED (prywatny projekt).
