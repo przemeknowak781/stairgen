@@ -17,13 +17,16 @@ export default function App() {
       <ControlPanel />
       <ValidationPanel />
       <StatusBar />
-      <Leva
-        titleBar={{ title: 'Parametry', drag: false, filter: false }}
-        theme={{
-          colors: { elevation1: '#0f1114', elevation2: '#1a1d22', elevation3: '#22252b' },
-          sizes: { rootWidth: '320px' },
-        }}
-      />
+      <div style={{ position: 'fixed', top: 56, left: 0, width: 320, bottom: 40, zIndex: 90, overflow: 'auto', background: '#0f1114' }}>
+        <Leva
+          fill
+          flat
+          titleBar={{ title: 'Parametry', drag: false, filter: false }}
+          theme={{
+            colors: { elevation1: '#0f1114', elevation2: '#1a1d22', elevation3: '#22252b' },
+          }}
+        />
+      </div>
       <div style={{ position: 'fixed', top: 56, left: 320, right: 280, bottom: 40, background: '#1a1d22' }}>
         <Canvas
           camera={{ position: [3200, 1800, 3200], fov: 40, near: 1, far: 20000 }}
