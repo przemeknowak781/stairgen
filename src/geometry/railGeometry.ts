@@ -4,13 +4,20 @@ import type { StairConfig } from '../config/types';
 import { computeMetrics } from '../config/metrics';
 
 class HelixCurve extends Curve<Vector3> {
-  constructor(
-    private r: number,
-    private H: number,
-    private sweepRad: number,
-    private sign: number,
-    private yOffset: number,
-  ) { super(); }
+  r: number;
+  H: number;
+  sweepRad: number;
+  sign: number;
+  yOffset: number;
+
+  constructor(r: number, H: number, sweepRad: number, sign: number, yOffset: number) {
+    super();
+    this.r = r;
+    this.H = H;
+    this.sweepRad = sweepRad;
+    this.sign = sign;
+    this.yOffset = yOffset;
+  }
 
   override getPoint(t: number, target = new Vector3()): Vector3 {
     const a = this.sign * t * this.sweepRad;
