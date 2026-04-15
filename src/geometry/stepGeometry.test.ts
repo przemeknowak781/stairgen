@@ -33,3 +33,26 @@ describe('buildStepGeometry', () => {
     expect(g.getIndex()).not.toBeNull();
   });
 });
+
+describe('nosing variants', () => {
+  it('rounded produces more vertices than square', () => {
+    const sq = buildStepGeometry({ ...DEFAULT_CONFIG, nosingType: 'square', nosingOvershoot: 0 }, 0);
+    const rn = buildStepGeometry({ ...DEFAULT_CONFIG, nosingType: 'rounded', nosingRadius: 10, nosingOvershoot: 0 }, 0);
+    expect(rn.getAttribute('position').count).toBeGreaterThan(sq.getAttribute('position').count);
+  });
+
+  it('chamfer produces more vertices than square', () => {
+    const sq = buildStepGeometry({ ...DEFAULT_CONFIG, nosingType: 'square', nosingOvershoot: 0 }, 0);
+    const ch = buildStepGeometry({ ...DEFAULT_CONFIG, nosingType: 'chamfer', chamferSize: 6, nosingOvershoot: 0 }, 0);
+    expect(ch.getAttribute('position').count).toBeGreaterThan(sq.getAttribute('position').count);
+  });
+
+  it('rounded bounding box stays within outerRadius', () => {
+    const cfg = { ...DEFAULT_CONFIG, nosingType: 'rounded' as const, nosingRadius: 10, nosingOvershoot: 0 };
+    const g = buildStepGeometry(cfg, 0);
+    g.computeBoundingBox();
+    const bb = g.boundingBox!;
+    const maxR = Math.max(Math.abs(bb.max.x), Math.abs(bb.min.x), Math.abs(bb.max.z), Math.abs(bb.min.z));
+    expect(maxR).toBeLessThanOrEqual(cfg.outerRadius + 1);
+  });
+});

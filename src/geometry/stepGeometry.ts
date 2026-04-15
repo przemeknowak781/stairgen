@@ -3,6 +3,29 @@ import type { StairConfig } from '../config/types';
 import { computeMetrics } from '../config/metrics';
 
 const ARC_SEGMENTS = 12;
+const ROUND_SEGS = 4;
+
+interface ProfilePt { dr: number; dy: number }
+
+function buildOuterProfile(cfg: StairConfig): ProfilePt[] {
+  const t = cfg.stepThickness;
+  if (cfg.nosingType === 'rounded') {
+    const R = Math.min(cfg.nosingRadius, t - 0.1);
+    const pts: ProfilePt[] = [];
+    for (let i = 0; i <= ROUND_SEGS; i++) {
+      const a = (i / ROUND_SEGS) * Math.PI / 2;
+      pts.push({ dr: -R + R * Math.sin(a), dy: -R + R * Math.cos(a) });
+    }
+    pts.push({ dr: 0, dy: -t });
+    return pts;
+  }
+  if (cfg.nosingType === 'chamfer') {
+    const C = Math.min(cfg.chamferSize, t - 0.1);
+    return [{ dr: -C, dy: 0 }, { dr: 0, dy: -C }, { dr: 0, dy: -t }];
+  }
+  // square / none
+  return [{ dr: 0, dy: 0 }, { dr: 0, dy: -t }];
+}
 
 export function buildStepGeometry(cfg: StairConfig, k: number): BufferGeometry {
   const { riseHeight, stepAngle, columnRadius } = computeMetrics(cfg);
@@ -13,59 +36,79 @@ export function buildStepGeometry(cfg: StairConfig, k: number): BufferGeometry {
   const yBot = yTop - cfg.stepThickness;
   const rIn = columnRadius;
   const rOut = cfg.outerRadius + cfg.nosingOvershoot;
+  const profile = buildOuterProfile(cfg);
 
   const positions: number[] = [];
   const indices: number[] = [];
-  const topRing: number[] = [];
-  const botRing: number[] = [];
+  const innerTopRing: number[] = [];
+  const innerBotRing: number[] = [];
+  const profileRings: number[][] = profile.map(() => []);
 
   for (let i = 0; i <= ARC_SEGMENTS; i++) {
     const t = i / ARC_SEGMENTS;
     const a = sign * (a0 + (a1 - a0) * t);
     const cos = Math.cos(a);
     const sin = Math.sin(a);
-    topRing.push(positions.length / 3); positions.push(rIn  * cos, yTop, rIn  * sin);
-    topRing.push(positions.length / 3); positions.push(rOut * cos, yTop, rOut * sin);
-    botRing.push(positions.length / 3); positions.push(rIn  * cos, yBot, rIn  * sin);
-    botRing.push(positions.length / 3); positions.push(rOut * cos, yBot, rOut * sin);
+
+    innerTopRing.push(positions.length / 3);
+    positions.push(rIn * cos, yTop, rIn * sin);
+    innerBotRing.push(positions.length / 3);
+    positions.push(rIn * cos, yBot, rIn * sin);
+
+    for (let p = 0; p < profile.length; p++) {
+      const pt = profile[p]!;
+      const r = rOut + pt.dr;
+      const y = yTop + pt.dy;
+      profileRings[p]!.push(positions.length / 3);
+      positions.push(r * cos, y, r * sin);
+    }
   }
+
+  const P_LAST = profile.length - 1;
 
   for (let i = 0; i < ARC_SEGMENTS; i++) {
-    const a = i * 2;
-    const b = (i + 1) * 2;
-    const iT_a = topRing[a]!;
-    const oT_a = topRing[a + 1]!;
-    const iT_b = topRing[b]!;
-    const oT_b = topRing[b + 1]!;
-    const iB_a = botRing[a]!;
-    const oB_a = botRing[a + 1]!;
-    const iB_b = botRing[b]!;
-    const oB_b = botRing[b + 1]!;
+    const a = i;
+    const b = i + 1;
 
-    // Top face
-    indices.push(iT_a, oT_a, oT_b, iT_a, oT_b, iT_b);
-    // Bottom face (reverse winding)
-    indices.push(iB_a, oB_b, oB_a, iB_a, iB_b, oB_b);
-    // Outer arc wall
-    indices.push(oT_a, oB_a, oB_b, oT_a, oB_b, oT_b);
-    // Inner arc wall (reverse winding)
+    // Top face: innerTop ↔ first profile point
+    const iT_a = innerTopRing[a]!;
+    const iT_b = innerTopRing[b]!;
+    const p0_a = profileRings[0]![a]!;
+    const p0_b = profileRings[0]![b]!;
+    indices.push(iT_a, p0_a, p0_b, iT_a, p0_b, iT_b);
+
+    // Bottom face: innerBot ↔ last profile point (reverse winding)
+    const iB_a = innerBotRing[a]!;
+    const iB_b = innerBotRing[b]!;
+    const pL_a = profileRings[P_LAST]![a]!;
+    const pL_b = profileRings[P_LAST]![b]!;
+    indices.push(iB_a, pL_b, pL_a, iB_a, iB_b, pL_b);
+
+    // Inner wall (reverse winding so normals point inward toward column)
     indices.push(iT_a, iT_b, iB_b, iT_a, iB_b, iB_a);
+
+    // Outer profile strips
+    for (let p = 0; p < P_LAST; p++) {
+      const q0_a = profileRings[p]![a]!;
+      const q0_b = profileRings[p]![b]!;
+      const q1_a = profileRings[p + 1]![a]!;
+      const q1_b = profileRings[p + 1]![b]!;
+      indices.push(q0_a, q1_a, q1_b, q0_a, q1_b, q0_b);
+    }
   }
 
-  // Riser front at a0 (first arc position)
-  const iT0 = topRing[0]!;
-  const oT0 = topRing[1]!;
-  const iB0 = botRing[0]!;
-  const oB0 = botRing[1]!;
-  indices.push(iT0, iB0, oB0, iT0, oB0, oT0);
+  // Riser front at a0 — fan from innerTop[0]
+  for (let p = 0; p < P_LAST; p++) {
+    indices.push(innerTopRing[0]!, profileRings[p + 1]![0]!, profileRings[p]![0]!);
+  }
+  indices.push(innerTopRing[0]!, innerBotRing[0]!, profileRings[P_LAST]![0]!);
 
-  // Back closure at a1 (last arc position)
-  const last = ARC_SEGMENTS * 2;
-  const iTN = topRing[last]!;
-  const oTN = topRing[last + 1]!;
-  const iBN = botRing[last]!;
-  const oBN = botRing[last + 1]!;
-  indices.push(iTN, oBN, iBN, iTN, oTN, oBN);
+  // Back closure at aN — fan reversed
+  const N = ARC_SEGMENTS;
+  for (let p = 0; p < P_LAST; p++) {
+    indices.push(innerTopRing[N]!, profileRings[p]![N]!, profileRings[p + 1]![N]!);
+  }
+  indices.push(innerTopRing[N]!, profileRings[P_LAST]![N]!, innerBotRing[N]!);
 
   const g = new BufferGeometry();
   g.setAttribute('position', new Float32BufferAttribute(positions, 3));
