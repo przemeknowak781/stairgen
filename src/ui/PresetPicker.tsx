@@ -1,39 +1,38 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStairStore } from '../store/useStairStore';
 import { PRESET_LIST, applyPreset } from '../config/presets';
 
 export function PresetPicker() {
   const [open, setOpen] = useState(false);
   const applyPresetFn = useStairStore((s) => s.applyPreset);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
 
   return (
-    <div style={{ position: 'relative' }}>
-      <button
-        onClick={() => setOpen(!open)}
-        style={{
-          padding: '8px 14px', background: '#2a2d32', color: '#eee',
-          border: '1px solid #3a3d42', cursor: 'pointer', fontSize: 12,
-          letterSpacing: 1, textTransform: 'uppercase', fontWeight: 600,
-        }}
-      >
-        Preset ▾
+    <div className="sg-preset" ref={rootRef}>
+      <button className="sg-btn" onClick={() => setOpen((v) => !v)}>
+        <span>Preset</span>
+        <span className="sg-btn__caret" />
       </button>
       {open && (
-        <div
-          style={{
-            position: 'absolute', top: '100%', right: 0, marginTop: 4,
-            background: '#1a1d22', border: '1px solid #333', minWidth: 260, zIndex: 200,
-          }}
-        >
-          {PRESET_LIST.map((p) => (
+        <div className="sg-preset__menu" role="listbox">
+          <div className="sg-preset__header">
+            <div className="sg-kicker">Biblioteka · {PRESET_LIST.length} ustawień</div>
+          </div>
+          {PRESET_LIST.map((p, i) => (
             <div
               key={p.id}
-              style={{
-                padding: '12px 16px', cursor: 'pointer', color: '#ddd',
-                borderBottom: '1px solid #2a2d32', fontSize: 13,
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = '#2a2d32')}
-              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+              role="option"
+              aria-selected="false"
+              className="sg-preset__item"
               onClick={() => {
                 const base = useStairStore.getState().config;
                 const merged = applyPreset(base, p.id);
@@ -41,7 +40,9 @@ export function PresetPicker() {
                 setOpen(false);
               }}
             >
-              {p.label}
+              <span className="sg-preset__index">{String(i + 1).padStart(2, '0')}</span>
+              <span>{p.label}</span>
+              <span className="sg-preset__arrow">›</span>
             </div>
           ))}
         </div>
