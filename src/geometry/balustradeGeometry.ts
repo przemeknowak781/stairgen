@@ -32,16 +32,21 @@ function buildVerticalBars(cfg: StairConfig): BufferGeometry {
   const sign = cfg.direction === 'CW' ? 1 : -1;
   const parts: BufferGeometry[] = [];
 
+  // Handrail centerline follows the helix y(t) = t*H + (railingHeight + riseHeight),
+  // where t = angle / sweepAngle. Bars must span from step-top (bottom) to that
+  // centerline (top) so they physically meet both step and handrail at every angle.
   for (const side of railSides(cfg)) {
     const r = railRadius(cfg, side);
     for (let k = 0; k < cfg.stepCount; k++) {
-      // Two bars per step: front edge and midpoint
       for (const aDeg of [k * stepAngle, (k + 0.5) * stepAngle]) {
         const a = sign * aDeg * Math.PI / 180;
         const x = r * Math.cos(a);
         const z = r * Math.sin(a);
-        const yBase = (k + 1) * riseHeight;
-        const h = cfg.railingHeight;
+        const yBottom = (k + 1) * riseHeight; // top surface of step k
+        const tFrac = aDeg / cfg.sweepAngle;
+        const yTop = tFrac * cfg.totalHeight + cfg.railingHeight + riseHeight;
+        const h = yTop - yBottom;
+        if (h <= 0) continue;
         let geom: BufferGeometry;
         if (cfg.barProfile === 'round') {
           geom = new CylinderGeometry(cfg.barDiameter / 2, cfg.barDiameter / 2, h, 12);
@@ -50,7 +55,7 @@ function buildVerticalBars(cfg: StairConfig): BufferGeometry {
         } else {
           geom = new BoxGeometry(cfg.barDiameter, h, cfg.barDiameter);
         }
-        geom.translate(x, yBase + h / 2, z);
+        geom.translate(x, yBottom + h / 2, z);
         parts.push(geom);
       }
     }

@@ -1,12 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useStairStore } from './useStairStore';
-import { DEFAULT_CONFIG } from '../config/defaults';
+import { useStairStore, INITIAL_CONFIG } from './useStairStore';
 
 describe('useStairStore', () => {
   beforeEach(() => useStairStore.getState().reset());
 
-  it('has DEFAULT_CONFIG initially', () => {
-    expect(useStairStore.getState().config).toEqual(DEFAULT_CONFIG);
+  it('has INITIAL_CONFIG (loft preset) initially', () => {
+    expect(useStairStore.getState().config).toEqual(INITIAL_CONFIG);
   });
 
   it('update() changes a single field', () => {
@@ -19,6 +18,6 @@ describe('useStairStore', () => {
     const c = useStairStore.getState().config;
     expect(c.stepCount).toBe(20);
     expect(c.outerRadius).toBe(900);
-    expect(c.totalHeight).toBe(DEFAULT_CONFIG.totalHeight);
+    expect(c.totalHeight).toBe(INITIAL_CONFIG.totalHeight);
   });
 });
